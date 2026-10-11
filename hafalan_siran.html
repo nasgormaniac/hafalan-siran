@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Video Hafalan Siran — My Body</title>
+  <style>
+    :root { color-scheme: light; font-family: "Segoe UI", Arial, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: #f5efe3; color: #385047; display: grid; place-items: center; }
+    main { width: min(100%, 1100px); padding: 18px; }
+    .screen { position: relative; overflow: hidden; aspect-ratio: 16 / 9; border-radius: 24px; background: #f9f3e7 url("siran_character.png") center/cover no-repeat; box-shadow: 0 18px 55px #6e615233; }
+    .panel { position: absolute; left: 46%; right: 4%; top: 15%; bottom: 16%; border-radius: 32px; background: #fffcf4ef; padding: 3.5% 4%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; text-align: center; }
+    .eyebrow { font-size: clamp(18px, 2.8vw, 34px); font-weight: 800; color: #795e4b; letter-spacing: .07em; }
+    .caption { flex: 1; display: grid; place-items: center; width: 100%; font-size: clamp(26px, 4.1vw, 52px); line-height: 1.2; font-weight: 750; text-wrap: balance; animation: appear .45s ease both; }
+    .count { font-size: clamp(14px, 1.5vw, 19px); color: #795e4b; }
+    .bar { width: 85%; height: 10px; border-radius: 99px; background: #dedfd6; margin-top: 12px; overflow: hidden; }
+    .fill { height: 100%; width: 0; border-radius: inherit; background: #77ae9f; transition: width .45s ease; }
+    .controls { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 18px 0 5px; flex-wrap: wrap; }
+    button { appearance: none; border: 0; border-radius: 999px; padding: 13px 25px; font: 700 17px/1 "Segoe UI", Arial, sans-serif; cursor: pointer; background: #76ae9e; color: white; box-shadow: 0 4px 10px #527c7033; }
+    button.secondary { background: #eadbc3; color: #594939; }
+    button:focus-visible { outline: 3px solid #385047; outline-offset: 3px; }
+    .voice-choice { display: flex; justify-content: center; align-items: center; gap: 9px; flex-wrap: wrap; font-size: 14px; }
+    select { max-width: min(90vw, 360px); padding: 7px 12px; border: 1px solid #a4bdb2; border-radius: 10px; background: white; color: #385047; font: inherit; }
+    .status { min-height: 1.5em; margin: 5px 0; text-align: center; font-size: 14px; color: #5e635d; }
+    .note { text-align: center; font-size: 14px; color: #5e635d; margin: 8px auto 0; }
+    @keyframes appear { from { opacity: .35; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @media (max-width: 640px) { main { padding: 8px; } .screen { aspect-ratio: 9 / 12; } .panel { left: 5%; right: 5%; top: 53%; bottom: 5%; padding: 5%; border-radius: 20px; } .caption { font-size: clamp(22px, 6vw, 38px); } }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="screen" aria-label="Hafalan My Body dengan karakter anak perempuan">
+      <div class="panel" aria-live="polite">
+        <div class="eyebrow">MY BODY</div>
+        <div class="caption" id="caption">My Body</div>
+        <div class="count" id="count">1 / 13</div>
+        <div class="bar"><div class="fill" id="fill"></div></div>
+      </div>
+    </section>
+    <div class="controls">
+      <button id="play">▶ Putar</button>
+      <button id="pause" class="secondary">⏸ Jeda</button>
+      <button id="restart" class="secondary">↺ Ulangi</button>
+    </div>
+    <label class="voice-choice">Pilih suara Inggris <select id="voice"><option value="">Otomatis (perempuan jika tersedia)</option></select></label>
+    <div class="status" id="status">Tekan Putar untuk mulai mendengar hafalan.</div>
+  </main>
+  <script>
+    const lines = [
+      ["My Body"],
+      ["Hi, ms and friends.", "Hi, miss and friends."],
+      ["My name is Siran."],
+      ["I am 4 years old."],
+      ["I am from K1 B."],
+      ["Kindergarten Geeta School."],
+      ["Today, I want to tell you about my body."],
+      ["I have two eyes and two ears."],
+      ["I have one mouth and one nose."],
+      ["I have two arms and two legs."],
+      ["I love my body."],
+      ["I love all of me."],
+      ["Thank you."]
+    ];
+    const caption = document.getElementById("caption");
+    const count = document.getElementById("count");
+    const fill = document.getElementById("fill");
+    const status = document.getElementById("status");
+    const speech = window.speechSynthesis;
+    const voiceSelect = document.getElementById("voice");
+    let current = 0, playing = false, timer = null, token = 0;
+
+    function show(index) {
+      caption.style.animation = "none";
+      void caption.offsetWidth;
+      caption.style.animation = "";
+      caption.textContent = lines[index][0];
+      count.textContent = `${index + 1} / ${lines.length}`;
+      fill.style.width = `${(index + 1) / lines.length * 100}%`;
+    }
+    function populateVoices() {
+      const selected = voiceSelect.value;
+      const voices = speech.getVoices().filter(v => /^en/i.test(v.lang));
+      voiceSelect.replaceChildren(new Option("Otomatis (perempuan jika tersedia)", ""));
+      voices.forEach(v => voiceSelect.add(new Option(`${v.name} (${v.lang})`, v.voiceURI)));
+      if (voices.some(v => v.voiceURI === selected)) voiceSelect.value = selected;
+    }
+    function femaleVoice(lang) {
+      const voices = speech.getVoices();
+      const matching = voices.filter(v => v.lang.toLowerCase().startsWith(lang));
+      if (lang === "en" && voiceSelect.value) {
+        return matching.find(v => v.voiceURI === voiceSelect.value) || null;
+      }
+      return matching.find(v => /zira|female|samantha|aria|jenny|ava|emma|nova|serena|olivia|linda|putri|gadis|ayu|damayanti/i.test(v.name))
+        || matching[0] || null;
+    }
+    function spokenParts(index) {
+      const en = femaleVoice("en");
+      const id = femaleVoice("id");
+      if (index === 1) return [{ text: "Hi, miss and friends!", lang: "en-US", voice: en }];
+      if (index === 2) return [
+        { text: "My name is", lang: "en-US", voice: en },
+        id ? { text: "Siran.", lang: "id-ID", voice: id } : { text: "See-rahn.", lang: "en-US", voice: en }
+      ];
+      if (index === 5) return [
+        { text: "Kindergarten", lang: "en-US", voice: en },
+        id ? { text: "Geta", lang: "id-ID", voice: id } : { text: "Geh-tah", lang: "en-US", voice: en },
+        { text: "School.", lang: "en-US", voice: en }
+      ];
+      const cheerful = [10, 11, 12].includes(index);
+      return [{ text: cheerful ? lines[index][0].replace(/\.$/, "!") : (lines[index][1] || lines[index][0]), lang: "en-US", voice: en }];
+    }
+    function next(myToken) {
+      if (!playing || myToken !== token) return;
+      if (current + 1 === lines.length) {
+        playing = false;
+        status.textContent = "Selesai! Tekan Ulangi untuk latihan lagi.";
+        return;
+      }
+      current += 1;
+      speakLine();
+    }
+    function speakLine() {
+      clearTimeout(timer);
+      const myToken = ++token;
+      speech.cancel();
+      show(current);
+      status.textContent = "Sedang memutar hafalan dengan suara ceria…";
+      const parts = spokenParts(current);
+      function speakPart(partIndex) {
+        if (!playing || myToken !== token) return;
+        if (partIndex === parts.length) {
+          timer = setTimeout(() => next(myToken), 950);
+          return;
+        }
+        const part = parts[partIndex];
+        const utterance = new SpeechSynthesisUtterance(part.text);
+        utterance.lang = part.lang;
+        utterance.rate = 0.82;
+        utterance.pitch = part.lang === "id-ID" ? 1.25 : (current === 1 || current >= 10 ? 1.43 : 1.34);
+        utterance.volume = 1;
+        if (part.voice) utterance.voice = part.voice;
+        utterance.onend = () => {
+          if (myToken === token && playing) timer = setTimeout(() => speakPart(partIndex + 1), 90);
+        };
+        utterance.onerror = () => {
+          if (myToken !== token || !playing) return;
+          status.textContent = "Suara browser tidak tersedia; caption tetap berjalan.";
+          timer = setTimeout(() => next(myToken), Math.max(2500, lines[current][0].split(" ").length * 650));
+        };
+        speech.speak(utterance);
+      }
+      timer = setTimeout(() => speakPart(0), 80);
+    }
+    document.getElementById("play").addEventListener("click", () => {
+      if (playing) return;
+      playing = true;
+      speakLine();
+    });
+    document.getElementById("pause").addEventListener("click", () => {
+      if (!playing) return;
+      playing = false;
+      ++token;
+      clearTimeout(timer);
+      speech.cancel();
+      status.textContent = "Dijeda. Tekan Putar untuk mengulang kalimat ini.";
+    });
+    document.getElementById("restart").addEventListener("click", () => {
+      playing = true;
+      current = 0;
+      speakLine();
+    });
+    populateVoices();
+    speech.onvoiceschanged = populateVoices;
+    show(0);
+  </script>
+</body>
+</html>
